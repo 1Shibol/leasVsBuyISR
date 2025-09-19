@@ -10,12 +10,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutrals & Teal -->
-    <!-- Application Structure Plan: A two-column responsive layout. The left column contains all user inputs (sliders and number fields) grouped by category: Car Details, Buying, and Leasing. This allows users to easily tweak assumptions. The right column is dedicated to dynamic outputs: a top-level summary card declares the most cost-effective option, a main bar chart visually compares the total costs, and a donut chart provides a detailed breakdown of expenses for either option. This interactive dashboard structure was chosen for its immediate feedback loop, enabling users to explore "what-if" scenarios and understand the impact of each variable on the final outcome, which is superior to a static sheet for decision-making. -->
+    <!-- Application Structure Plan: A two-column responsive layout for the main calculator and a new section below for saved deals. The left column of the calculator contains all user inputs (sliders and number fields) grouped by category. The right column is dedicated to dynamic outputs: a summary card, a bar chart, and a donut chart. This interactive dashboard structure provides immediate feedback for "what-if" scenarios. The new "Saved Opportunities" section allows users to save and manage different car deals they find. This adds a crucial long-term comparison capability, enhancing the app's utility from a one-off calculator to a personal research tool. -->
     <!-- Visualization & Content Choices: 
         1. Report Info: Overall comparison result. Goal: Inform. Viz: Summary Card (HTML/CSS). Interaction: None (dynamic text). Justification: Provides a clear, immediate answer.
         2. Report Info: Total cost of buying vs. leasing. Goal: Compare. Viz: Bar Chart (Chart.js/Canvas). Interaction: Hover tooltips for exact values. Justification: The simplest and most effective way to compare two primary values.
         3. Report Info: Component costs (depreciation, interest, fees, etc.). Goal: Organize/Inform. Viz: Donut Chart (Chart.js/Canvas). Interaction: Buttons to toggle between Buy/Lease breakdown. Justification: Shows the proportion of each cost component, helping users understand where the money goes. Toggling keeps the UI clean.
-        4. Report Info: All numerical inputs. Goal: User Input. Viz: HTML Sliders & Number Inputs. Interaction: User modification triggers recalculation. Justification: Combines tactile exploration (sliders) with precision (number fields). -->
+        4. Report Info: All numerical inputs. Goal: User Input. Viz: HTML Sliders & Number Inputs. Interaction: User modification triggers recalculation. Justification: Combines tactile exploration (sliders) with precision (number fields).
+        5. Report Info: Saved car deals. Goal: Store & Recall. Viz: Dynamic List (HTML/JS). Interaction: Buttons to save new deals, load old deals into the calculator, and delete them. Justification: Adds persistent data storage via localStorage, transforming the app into a practical tool for long-term financial planning. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
@@ -189,8 +190,41 @@
                     </div>
                 </div>
             </div>
-
         </main>
+        
+        <hr class="my-12 border-stone-300">
+
+        <section class="mt-8">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-6 text-teal-800">הזדמנויות שמורות</h2>
+            <p class="text-center text-stone-600 mb-8 max-w-2xl mx-auto">כאן תוכלו לשמור פרטים של מכוניות שאתם שוקלים כדי לחזור אליהן מאוחר יותר ולהשוות בקלות.</p>
+
+            <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
+                <h3 class="text-xl font-semibold text-teal-700 border-b-2 border-teal-100 pb-2 mb-4">שמירת הזדמנות חדשה</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="saveName" class="block text-sm font-medium text-stone-700">שם העסקה (לדוגמא: טויוטה קורולה ליסינג)</label>
+                        <input type="text" id="saveName" class="w-full p-2 border border-stone-300 rounded-md" placeholder="שם העסקה">
+                    </div>
+                    <div>
+                        <label for="saveMake" class="block text-sm font-medium text-stone-700">יצרן</label>
+                        <input type="text" id="saveMake" class="w-full p-2 border border-stone-300 rounded-md" placeholder="טויוטה, יונדאי וכו'">
+                    </div>
+                    <div class="md:col-span-2">
+                        <button id="saveDealBtn" class="w-full bg-teal-600 text-white py-2 px-4 rounded-lg hover:bg-teal-700 transition-colors">
+                            שמור עסקה
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-lg">
+                <h3 class="text-xl font-semibold text-teal-700 border-b-2 border-teal-100 pb-2 mb-4">ההזדמנויות השמורות שלי</h3>
+                <div id="savedDealsList" class="space-y-4">
+                    <p class="text-center text-stone-500" id="noDealsMessage">אין עסקאות שמורות.</p>
+                </div>
+            </div>
+
+        </section>
     </div>
 
 <script>
@@ -232,19 +266,27 @@
             lease: document.getElementById('showLeaseBreakdown'),
         };
 
+        const savedDeals = {
+            name: document.getElementById('saveName'),
+            make: document.getElementById('saveMake'),
+            btn: document.getElementById('saveDealBtn'),
+            list: document.getElementById('savedDealsList'),
+            noDealsMessage: document.getElementById('noDealsMessage')
+        };
+
         let activeBreakdown = 'buy';
 
         const formatCurrency = (num) => `${Math.round(num).toLocaleString('he-IL')} ₪`;
 
-        const updateValueDisplays = () => {
-            values.purchasePriceValue.textContent = formatCurrency(inputs.purchasePrice.value);
-            values.residualValueValue.textContent = formatCurrency(inputs.residualValue.value);
-            values.comparisonPeriodValue.textContent = `${inputs.comparisonPeriod.value} חודשים`;
-            values.downPaymentValue.textContent = formatCurrency(inputs.downPayment.value);
-            values.interestRateValue.textContent = `${parseFloat(inputs.interestRate.value).toFixed(1)} %`;
-            values.leaseInitialPaymentValue.textContent = formatCurrency(inputs.leaseInitialPayment.value);
-            values.leaseMonthlyPaymentValue.textContent = formatCurrency(inputs.leaseMonthlyPayment.value);
-            values.investmentReturnRateValue.textContent = `${parseFloat(inputs.investmentReturnRate.value).toFixed(1)} %`;
+        const updateValueDisplays = (source = inputs) => {
+            values.purchasePriceValue.textContent = formatCurrency(source.purchasePrice.value);
+            values.residualValueValue.textContent = formatCurrency(source.residualValue.value);
+            values.comparisonPeriodValue.textContent = `${source.comparisonPeriod.value} חודשים`;
+            values.downPaymentValue.textContent = formatCurrency(source.downPayment.value);
+            values.interestRateValue.textContent = `${parseFloat(source.interestRate.value).toFixed(1)} %`;
+            values.leaseInitialPaymentValue.textContent = formatCurrency(source.leaseInitialPayment.value);
+            values.leaseMonthlyPaymentValue.textContent = formatCurrency(source.leaseMonthlyPayment.value);
+            values.investmentReturnRateValue.textContent = `${parseFloat(source.investmentReturnRate.value).toFixed(1)} %`;
         };
 
         const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
@@ -332,7 +374,6 @@
             const inv_rate_annual = parseFloat(inputs.investmentReturnRate.value) / 100;
             const inv_rate_monthly = inv_rate_annual / 12;
 
-            // Buy Calculation
             const monthlyPayment = loanAmount > 0 ? (loanAmount * i_monthly * Math.pow(1 + i_monthly, n_loan_payments)) / (Math.pow(1 + i_monthly, n_loan_payments) - 1) : 0;
             const totalLoanPayments = monthlyPayment * n_loan_payments;
             const totalInterestPaid = totalLoanPayments - loanAmount;
@@ -340,7 +381,6 @@
             const depreciation = P - V_res;
             const totalCostBuy = D + totalLoanPayments + C_ins_total + C_lic_total + C_maint_total + C_fuel_total - V_res;
             
-            // Lease Calculation
             const downPaymentDifference = D - D_lease;
             let opportunityCostReturn = 0;
             if (downPaymentDifference > 0) {
@@ -402,7 +442,6 @@
             calculateCosts();
         });
 
-
         Object.values(inputs).forEach(input => {
             input.addEventListener('input', () => {
                 updateValueDisplays();
@@ -410,8 +449,95 @@
             });
         });
 
+        const saveDeal = () => {
+            const deal = {
+                id: Date.now(),
+                name: savedDeals.name.value || 'עסקה ללא שם',
+                make: savedDeals.make.value || 'לא ידוע',
+                purchasePrice: inputs.purchasePrice.value,
+                residualValue: inputs.residualValue.value,
+                comparisonPeriod: inputs.comparisonPeriod.value,
+                downPayment: inputs.downPayment.value,
+                interestRate: inputs.interestRate.value,
+                leaseInitialPayment: inputs.leaseInitialPayment.value,
+                leaseMonthlyPayment: inputs.leaseMonthlyPayment.value,
+                insuranceCost: inputs.insuranceCost.value,
+                licenseFee: inputs.licenseFee.value,
+                maintenanceCost: inputs.maintenanceCost.value,
+                fuelMiscCost: inputs.fuelMiscCost.value,
+                investmentReturnRate: inputs.investmentReturnRate.value
+            };
+            let deals = JSON.parse(localStorage.getItem('carDeals')) || [];
+            deals.push(deal);
+            localStorage.setItem('carDeals', JSON.stringify(deals));
+            renderSavedDeals();
+            savedDeals.name.value = '';
+            savedDeals.make.value = '';
+        };
+
+        const renderSavedDeals = () => {
+            const deals = JSON.parse(localStorage.getItem('carDeals')) || [];
+            savedDeals.list.innerHTML = '';
+            if (deals.length === 0) {
+                savedDeals.noDealsMessage.style.display = 'block';
+            } else {
+                savedDeals.noDealsMessage.style.display = 'none';
+                deals.forEach(deal => {
+                    const dealCard = document.createElement('div');
+                    dealCard.className = 'bg-stone-100 p-4 rounded-lg shadow flex flex-col md:flex-row justify-between items-center';
+                    dealCard.innerHTML = `
+                        <div>
+                            <p class="font-bold text-teal-800">${deal.name}</p>
+                            <p class="text-sm text-stone-600">יצרן: ${deal.make}</p>
+                            <p class="text-sm text-stone-600">מחיר: ${formatCurrency(deal.purchasePrice)}</p>
+                        </div>
+                        <div class="flex space-x-2 space-x-reverse mt-4 md:mt-0">
+                            <button class="load-btn text-sm bg-teal-600 text-white px-3 py-1 rounded-full hover:bg-teal-700 transition-colors" data-id="${deal.id}">
+                                טען למחשבון
+                            </button>
+                            <button class="delete-btn text-sm bg-stone-300 text-stone-800 px-3 py-1 rounded-full hover:bg-stone-400 transition-colors" data-id="${deal.id}">
+                                מחק
+                            </button>
+                        </div>
+                    `;
+                    savedDeals.list.appendChild(dealCard);
+                });
+            }
+        };
+
+        const loadDeal = (id) => {
+            const deals = JSON.parse(localStorage.getItem('carDeals')) || [];
+            const deal = deals.find(d => d.id == id);
+            if (deal) {
+                for (const key in inputs) {
+                    if (inputs[key].type === 'range' || inputs[key].type === 'number') {
+                        inputs[key].value = deal[key];
+                    }
+                }
+                updateValueDisplays();
+                calculateCosts();
+            }
+        };
+
+        const deleteDeal = (id) => {
+            let deals = JSON.parse(localStorage.getItem('carDeals')) || [];
+            deals = deals.filter(d => d.id != id);
+            localStorage.setItem('carDeals', JSON.stringify(deals));
+            renderSavedDeals();
+        };
+
+        savedDeals.btn.addEventListener('click', saveDeal);
+        savedDeals.list.addEventListener('click', (e) => {
+            if (e.target.classList.contains('load-btn')) {
+                loadDeal(e.target.dataset.id);
+            } else if (e.target.classList.contains('delete-btn')) {
+                deleteDeal(e.target.dataset.id);
+            }
+        });
+
         updateValueDisplays();
         calculateCosts();
+        renderSavedDeals();
     });
 </script>
 </body>
