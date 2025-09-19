@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מחשבון רכב: ליסינג מול קנייה</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals & Teal -->
+    <!-- Application Structure Plan: A two-column responsive layout. The left column contains all user inputs (sliders and number fields) grouped by category: Car Details, Buying, and Leasing. This allows users to easily tweak assumptions. The right column is dedicated to dynamic outputs: a top-level summary card declares the most cost-effective option, a main bar chart visually compares the total costs, and a donut chart provides a detailed breakdown of expenses for either option. This interactive dashboard structure was chosen for its immediate feedback loop, enabling users to explore "what-if" scenarios and understand the impact of each variable on the final outcome, which is superior to a static sheet for decision-making. -->
+    <!-- Visualization & Content Choices: 
+        1. Report Info: Overall comparison result. Goal: Inform. Viz: Summary Card (HTML/CSS). Interaction: None (dynamic text). Justification: Provides a clear, immediate answer.
+        2. Report Info: Total cost of buying vs. leasing. Goal: Compare. Viz: Bar Chart (Chart.js/Canvas). Interaction: Hover tooltips for exact values. Justification: The simplest and most effective way to compare two primary values.
+        3. Report Info: Component costs (depreciation, interest, fees, etc.). Goal: Organize/Inform. Viz: Donut Chart (Chart.js/Canvas). Interaction: Buttons to toggle between Buy/Lease breakdown. Justification: Shows the proportion of each cost component, helping users understand where the money goes. Toggling keeps the UI clean.
+        4. Report Info: All numerical inputs. Goal: User Input. Viz: HTML Sliders & Number Inputs. Interaction: User modification triggers recalculation. Justification: Combines tactile exploration (sliders) with precision (number fields). -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Rubik', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 320px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #0d9488;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #0d9488;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800" dir="rtl">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-teal-800">מחשבון רכב: ליסינג מול קנייה</h1>
+            <p class="text-stone-600 mt-2 text-lg">הכניסו את הנתונים שלכם ובדקו איזו אופציה משתלמת יותר עבורכם בישראל.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+
+            <!-- Input Controls Panel -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg">
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-xl font-semibold text-teal-700 border-b-2 border-teal-100 pb-2 mb-4">פרטי הרכב</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="purchasePrice" class="block text-sm font-medium text-stone-700">מחיר רכישה (P)</label>
+                                <div class="flex items-center space-x-2 space-x-reverse">
+                                    <input type="range" id="purchasePrice" min="50000" max="500000" step="5000" value="200000" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer">
+                                    <span id="purchasePriceValue" class="font-semibold text-teal-800 w-28 text-left">200,000 ₪</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="residualValue" class="block text-sm font-medium text-stone-700">שווי גרט (V_res)</label>
+                                <div class="flex items-center space-x-2 space-x-reverse">
+                                    <input type="range" id="residualValue" min="20000" max="300000" step="5000" value="100000" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer">
+                                    <span id="residualValueValue" class="font-semibold text-teal-800 w-28 text-left">100,000 ₪</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="comparisonPeriod" class="block text-sm font-medium text-stone-700">תקופת השוואה (T)</label>
+                                <div class="flex items-center space-x-2 space-x-reverse">
+                                    <input type="range" id="comparisonPeriod" min="12" max="60" step="1" value="36" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer">
+                                    <span id="comparisonPeriodValue" class="font-semibold text-teal-800 w-28 text-left">36 חודשים</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-semibold text-teal-700 border-b-2 border-teal-100 pb-2 mb-4">אופציית קנייה</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="downPayment" class="block text-sm font-medium text-stone-700">מקדמה (D)</label>
+                                <div class="flex items-center space-x-2 space-x-reverse">
+                                    <input type="range" id="downPayment" min="0" max="250000" step="5000" value="50000" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer">
+                                    <span id="downPaymentValue" class="font-semibold text-teal-800 w-28 text-left">50,000 ₪</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="interestRate" class="block text-sm font-medium text-stone-700">ריבית שנתית (I)</label>
+                                <div class="flex items-center space-x-2 space-x-reverse">
+                                    <input type="range" id="interestRate" min="1" max="10" step="0.1" value="4.5" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer">
+                                    <span id="interestRateValue" class="font-semibold text-teal-800 w-28 text-left">4.5 %</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-xl font-semibold text-teal-700 border-b-2 border-teal-100 pb-2 mb-4">אופציית ליסינג</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="leaseInitialPayment" class="block text-sm font-medium text-stone-700">תשלום ראשוני (D_lease)</label>
+                                <div class="flex items-center space-x-2 space-x-reverse">
+                                    <input type="range" id="leaseInitialPayment" min="0" max="50000" step="1000" value="15000" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer">
+                                    <span id="leaseInitialPaymentValue" class="font-semibold text-teal-800 w-28 text-left">15,000 ₪</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="leaseMonthlyPayment" class="block text-sm font-medium text-stone-700">תשלום חודשי (C_lease)</label>
+                                <div class="flex items-center space-x-2 space-x-reverse">
+                                    <input type="range" id="leaseMonthlyPayment" min="1000" max="7000" step="100" value="2800" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer">
+                                    <span id="leaseMonthlyPaymentValue" class="font-semibold text-teal-800 w-28 text-left">2,800 ₪</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-semibold text-teal-700 border-b-2 border-teal-100 pb-2 mb-4">עלויות שנתיות נוספות</h3>
+                        <div class="space-y-4">
+                            <label for="insuranceCost" class="block text-sm font-medium text-stone-700">עלות ביטוח שנתית (C_ins)</label>
+                            <input type="number" id="insuranceCost" value="6500" class="w-full p-2 border border-stone-300 rounded-md">
+                            
+                            <label for="licenseFee" class="block text-sm font-medium text-stone-700">אגרת רישוי שנתית (C_lic)</label>
+                            <input type="number" id="licenseFee" value="1800" class="w-full p-2 border border-stone-300 rounded-md">
+
+                            <label for="maintenanceCost" class="block text-sm font-medium text-stone-700">עלות אחזקה שנתית (C_maint)</label>
+                            <input type="number" id="maintenanceCost" value="2500" class="w-full p-2 border border-stone-300 rounded-md">
+                            
+                            <label for="fuelMiscCost" class="block text-sm font-medium text-stone-700">דלק והוצאות שונות (שנתי)</label>
+                            <input type="number" id="fuelMiscCost" value="10000" class="w-full p-2 border border-stone-300 rounded-md">
+
+                            <label for="investmentReturnRate" class="block text-sm font-medium text-stone-700">תשואה על השקעה (שנתי)</label>
+                            <div class="flex items-center space-x-2 space-x-reverse">
+                                <input type="range" id="investmentReturnRate" min="1" max="10" step="0.1" value="5" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer">
+                                <span id="investmentReturnRateValue" class="font-semibold text-teal-800 w-28 text-left">5.0 %</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="lg:col-span-3 space-y-8">
+                <div id="summaryCard" class="p-6 rounded-2xl shadow-lg text-center transition-all duration-300">
+                    <h2 id="summaryTitle" class="text-2xl md:text-3xl font-bold"></h2>
+                    <p id="summarySubtitle" class="text-lg mt-1"></p>
+                </div>
+                
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h3 class="text-xl font-semibold text-center mb-4 text-teal-700">השוואת עלות כוללת לתקופה</h3>
+                    <div class="chart-container">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h3 class="text-xl font-semibold text-center mb-4 text-teal-700">פירוט עלויות</h3>
+                     <div class="flex justify-center mb-4">
+                        <div class="inline-flex rounded-md shadow-sm" role="group">
+                            <button type="button" id="showBuyBreakdown" class="px-4 py-2 text-sm font-medium text-white bg-teal-600 border border-teal-600 rounded-r-lg hover:bg-teal-700 focus:z-10 focus:ring-2 focus:ring-teal-500">
+                                קנייה
+                            </button>
+                            <button type="button" id="showLeaseBreakdown" class="px-4 py-2 text-sm font-medium text-teal-700 bg-white border-t border-b border-teal-600 hover:bg-stone-50 focus:z-10 focus:ring-2 focus:ring-teal-500">
+                                ליסינג
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="breakdownChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const inputs = {
+            purchasePrice: document.getElementById('purchasePrice'),
+            residualValue: document.getElementById('residualValue'),
+            comparisonPeriod: document.getElementById('comparisonPeriod'),
+            downPayment: document.getElementById('downPayment'),
+            interestRate: document.getElementById('interestRate'),
+            leaseInitialPayment: document.getElementById('leaseInitialPayment'),
+            leaseMonthlyPayment: document.getElementById('leaseMonthlyPayment'),
+            insuranceCost: document.getElementById('insuranceCost'),
+            licenseFee: document.getElementById('licenseFee'),
+            maintenanceCost: document.getElementById('maintenanceCost'),
+            fuelMiscCost: document.getElementById('fuelMiscCost'),
+            investmentReturnRate: document.getElementById('investmentReturnRate'),
+        };
+
+        const values = {
+            purchasePriceValue: document.getElementById('purchasePriceValue'),
+            residualValueValue: document.getElementById('residualValueValue'),
+            comparisonPeriodValue: document.getElementById('comparisonPeriodValue'),
+            downPaymentValue: document.getElementById('downPaymentValue'),
+            interestRateValue: document.getElementById('interestRateValue'),
+            leaseInitialPaymentValue: document.getElementById('leaseInitialPaymentValue'),
+            leaseMonthlyPaymentValue: document.getElementById('leaseMonthlyPaymentValue'),
+            investmentReturnRateValue: document.getElementById('investmentReturnRateValue'),
+        };
+
+        const summary = {
+            card: document.getElementById('summaryCard'),
+            title: document.getElementById('summaryTitle'),
+            subtitle: document.getElementById('summarySubtitle'),
+        };
+        
+        const breakdownButtons = {
+            buy: document.getElementById('showBuyBreakdown'),
+            lease: document.getElementById('showLeaseBreakdown'),
+        };
+
+        let activeBreakdown = 'buy';
+
+        const formatCurrency = (num) => `${Math.round(num).toLocaleString('he-IL')} ₪`;
+
+        const updateValueDisplays = () => {
+            values.purchasePriceValue.textContent = formatCurrency(inputs.purchasePrice.value);
+            values.residualValueValue.textContent = formatCurrency(inputs.residualValue.value);
+            values.comparisonPeriodValue.textContent = `${inputs.comparisonPeriod.value} חודשים`;
+            values.downPaymentValue.textContent = formatCurrency(inputs.downPayment.value);
+            values.interestRateValue.textContent = `${parseFloat(inputs.interestRate.value).toFixed(1)} %`;
+            values.leaseInitialPaymentValue.textContent = formatCurrency(inputs.leaseInitialPayment.value);
+            values.leaseMonthlyPaymentValue.textContent = formatCurrency(inputs.leaseMonthlyPayment.value);
+            values.investmentReturnRateValue.textContent = `${parseFloat(inputs.investmentReturnRate.value).toFixed(1)} %`;
+        };
+
+        const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+        const comparisonChart = new Chart(comparisonCtx, {
+            type: 'bar',
+            data: {
+                labels: ['קנייה', 'ליסינג'],
+                datasets: [{
+                    label: 'עלות כוללת',
+                    data: [0, 0],
+                    backgroundColor: ['rgba(15, 118, 110, 0.6)', 'rgba(14, 165, 233, 0.6)'],
+                    borderColor: ['rgb(15, 118, 110)', 'rgb(14, 165, 233)'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `עלות כוללת: ${formatCurrency(context.raw)}`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) => formatCurrency(value)
+                        }
+                    }
+                }
+            }
+        });
+
+        const breakdownCtx = document.getElementById('breakdownChart').getContext('2d');
+        const breakdownChart = new Chart(breakdownCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: ['#0f766e', '#0ea5e9', '#f97316', '#eab308', '#84cc16'],
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                    tooltip: {
+                         callbacks: {
+                            label: (context) => ` ${context.label}: ${formatCurrency(context.raw)}`
+                        }
+                    }
+                }
+            }
+        });
+
+        function calculateCosts() {
+            const P = parseFloat(inputs.purchasePrice.value);
+            const V_res = parseFloat(inputs.residualValue.value);
+            const T_months = parseInt(inputs.comparisonPeriod.value);
+            const T_years = T_months / 12;
+
+            const D = parseFloat(inputs.downPayment.value);
+            const i_annual = parseFloat(inputs.interestRate.value) / 100;
+            const i_monthly = i_annual / 12;
+            const loanAmount = P - D;
+            const n_loan_payments = T_months;
+
+            const C_ins_total = parseFloat(inputs.insuranceCost.value) * T_years;
+            const C_lic_total = parseFloat(inputs.licenseFee.value) * T_years;
+            const C_maint_total = parseFloat(inputs.maintenanceCost.value) * T_years;
+            const C_fuel_total = parseFloat(inputs.fuelMiscCost.value) * T_years;
+
+            const D_lease = parseFloat(inputs.leaseInitialPayment.value);
+            const C_lease_monthly = parseFloat(inputs.leaseMonthlyPayment.value);
+            const C_lease_total_payments = C_lease_monthly * T_months;
+            
+            const inv_rate_annual = parseFloat(inputs.investmentReturnRate.value) / 100;
+            const inv_rate_monthly = inv_rate_annual / 12;
+
+            // Buy Calculation
+            const monthlyPayment = loanAmount > 0 ? (loanAmount * i_monthly * Math.pow(1 + i_monthly, n_loan_payments)) / (Math.pow(1 + i_monthly, n_loan_payments) - 1) : 0;
+            const totalLoanPayments = monthlyPayment * n_loan_payments;
+            const totalInterestPaid = totalLoanPayments - loanAmount;
+            
+            const depreciation = P - V_res;
+            const totalCostBuy = D + totalLoanPayments + C_ins_total + C_lic_total + C_maint_total + C_fuel_total - V_res;
+            
+            // Lease Calculation
+            const downPaymentDifference = D - D_lease;
+            let opportunityCostReturn = 0;
+            if (downPaymentDifference > 0) {
+                 opportunityCostReturn = downPaymentDifference * Math.pow(1 + inv_rate_annual, T_years) - downPaymentDifference;
+            }
+            const totalCostLease = D_lease + C_lease_total_payments + C_fuel_total - opportunityCostReturn;
+            
+            const leaseCostsBreakdown = [C_lease_total_payments, D_lease, C_fuel_total, -opportunityCostReturn];
+            const buyCostsBreakdown = [depreciation, totalInterestPaid, C_ins_total, C_lic_total + C_maint_total + C_fuel_total];
+
+            updateUI(totalCostBuy, totalCostLease, buyCostsBreakdown, leaseCostsBreakdown);
+        }
+
+        function updateUI(costBuy, costLease, buyBreakdown, leaseBreakdown) {
+            const difference = Math.abs(costBuy - costLease);
+            if (costBuy < costLease) {
+                summary.card.className = "p-6 rounded-2xl shadow-lg text-center transition-all duration-300 bg-teal-50 text-teal-800";
+                summary.title.textContent = "קנייה משתלמת יותר";
+                summary.subtitle.textContent = `חיסכון של ${formatCurrency(difference)} לאורך התקופה`;
+            } else {
+                summary.card.className = "p-6 rounded-2xl shadow-lg text-center transition-all duration-300 bg-sky-50 text-sky-800";
+                summary.title.textContent = "ליסינג משתלם יותר";
+                summary.subtitle.textContent = `חיסכון של ${formatCurrency(difference)} לאורך התקופה`;
+            }
+
+            comparisonChart.data.datasets[0].data = [costBuy, costLease];
+            comparisonChart.update();
+
+            updateBreakdownChart(buyBreakdown, leaseBreakdown);
+        }
+
+        function updateBreakdownChart(buyBreakdown, leaseBreakdown) {
+            if (activeBreakdown === 'buy') {
+                breakdownChart.data.labels = ['ירידת ערך', 'ריבית הלוואה', 'ביטוח', 'אחזקה ודלק'];
+                breakdownChart.data.datasets[0].data = buyBreakdown;
+            } else {
+                breakdownChart.data.labels = ['תשלומים חודשיים', 'תשלום ראשוני', 'דלק והוצאות', 'החזר על השקעה'];
+                breakdownChart.data.datasets[0].data = leaseBreakdown;
+                breakdownChart.data.datasets[0].backgroundColor = ['#0ea5e9', '#38bdf8', '#f97316', '#84cc16'];
+            }
+            breakdownChart.update();
+        }
+        
+        breakdownButtons.buy.addEventListener('click', () => {
+            activeBreakdown = 'buy';
+            breakdownButtons.buy.classList.add('bg-teal-600', 'text-white');
+            breakdownButtons.buy.classList.remove('bg-white', 'text-teal-700');
+            breakdownButtons.lease.classList.add('bg-white', 'text-teal-700');
+            breakdownButtons.lease.classList.remove('bg-teal-600', 'text-white');
+            calculateCosts();
+        });
+
+        breakdownButtons.lease.addEventListener('click', () => {
+            activeBreakdown = 'lease';
+            breakdownButtons.lease.classList.add('bg-teal-600', 'text-white');
+            breakdownButtons.lease.classList.remove('bg-white', 'text-teal-700');
+            breakdownButtons.buy.classList.add('bg-white', 'text-teal-700');
+            breakdownButtons.buy.classList.remove('bg-teal-600', 'text-white');
+            calculateCosts();
+        });
+
+
+        Object.values(inputs).forEach(input => {
+            input.addEventListener('input', () => {
+                updateValueDisplays();
+                calculateCosts();
+            });
+        });
+
+        updateValueDisplays();
+        calculateCosts();
+    });
+</script>
+</body>
+</html>
